@@ -30,7 +30,7 @@ ejecución.
 ##################################################################################
 from msot_forecast import MSOT
 import pandas as pd
-
+import time
 ##################################################################################
 # Archivos para el modelo
 ##################################################################################
@@ -74,4 +74,4 @@ while fecha0 != fecha1:
 	fecha0 += pd.Timedelta("6H")
 	# Espero 6 horas hasta que este el siguente set de datos
 	if fecha1 == None:
-		sleep(3600 * 6)
+		time.sleep(3600 * 6)
