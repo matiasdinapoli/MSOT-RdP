@@ -72,6 +72,3 @@ while fecha0 != fecha1:
 	sim.add_parameters("cd", 2.0e-3)
 	sim.run()
 	fecha0 += pd.Timedelta("6H")
-	# Espero 6 horas hasta que este el siguente set de datos
-	if fecha1 == None:
-		sleep(3600 * 6)
