@@ -353,10 +353,10 @@ class MSOT(object):
         ## Averiguo si el archivo existe sino espero de a una hora
         existe = 1
         while existe != 0:
-            existe = os.system(descargas[0] + " --output {loc}prueba.grib2".format(locacion))
+            existe = os.system(descargas[0] + " --output {loc}prueba.grib2".format(loc = locacion))
             if existe != 0:
                 time.sleep(3600)
-        os.system("rm {loc}prueba.grib2".format(locacion))
+        os.system("rm {loc}prueba.grib2".format(loc = locacion))
         ## Descargo de a 10 archivos a la vez
         pool = multiprocessing.Pool(processes = 20)
         pool.map(os.system, [desc + " --output {loc}{name}".format(loc = locacion, name = nomb) for desc, nomb in zip(descargas, nombres)])
