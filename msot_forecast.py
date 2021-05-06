@@ -351,10 +351,10 @@ class MSOT(object):
         existe = False
         while not existe:
             os.system(descargas[-1] + " --output {loc}prueba.grib2".format(loc = locacion))
-            try:
-                prueba = xr.open_dataset("{loc}prueba.grib2".format(loc = locacion), engine='cfgrib')
+            # Pregunto si el archivo pesa mas de un 1 KB
+            if os.stats("{loc}prueba.grib2".format(loc = locacion)).st_size >= 1024:
                 existe = True
-            except:
+            else:
                 time.sleep(3600)
         os.system("rm {loc}prueba.*".format(loc = locacion))
         ## Descargo de a 10 archivos a la vez
