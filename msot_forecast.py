@@ -135,7 +135,7 @@ class MSOT(object):
         """
         Elimino los archivos de input y log
         """
-        os.system("rm *.in log* {locacion}*frc.nc {locacion}*runoff.nc {locacion}*bry.nc".format(self.locacion))
+        os.system("rm *.in log* {locacion}*frc.nc {locacion}*runoff.nc {locacion}*bry.nc".format(locacion = self.locacion))
         return
 
     ################################################################################
@@ -462,10 +462,6 @@ class MSOT(object):
     def make_boundary(self, n):
         grd = xr.open_dataset(eval("self.dom{}".format(n)))
         his = xr.open_dataset("{}{}_{}_his.nc".format(self.locacion, self.name, n-1))
-        # Reacomodo de dimensiones
-        for vari in ["rho", "u", "v"]:
-            his["lat_{}".format(vari)] = ("lat_{}".format(vari), eval("his.lat_{}[:,0]".format(vari)))
-            his["lon_{}".format(vari)] = ("lon_{}".format(vari), eval("his.lon_{}[0,:]".format(vari)))
         variables = {"spherical": ("one", [1]), "Vtransform": ("one", [1]),
                      "Vstretching": ("one", [1]), "theta_s": ("one", [6.]),
                      "theta_b": ("one", [0.]), "Tcline": ("one", [0.5]),
