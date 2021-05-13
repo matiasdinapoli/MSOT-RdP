@@ -18,7 +18,11 @@ El programa según se lo indique descargará el forzante meteorológico o lo lee
   path/prono{fecha}/{fecha}T{hora_de_inicio}_{dominio}_his.nc
   
 donde "hora_de_inicio" indica alguno de los 4 ciclos diarios de inicializacion y domino si se refiere a la Plataforma Continental Argentina (0 ó dominio0) o al Río de la Plata y su Plataforma Continental adyacente (1 ó dominio1). En run_msot_forcast.py se puede explicitar si la fecha incial y final o si se quiere un pronostico operativo. 
-  
+
+Requerimientos:
+  1) Para la simulación: FORTRAN
+  2) Pre y post procesamientos: Python 3 y las librerías xarray y uptides.
+
 Referencias
 
 Debreu, L., P. Marchesiello, P. Penven, y G. Cambon, 2012: Two-way nesting in split-explicit ocean models: algorithms, implementation and validation. Ocean Modelling, 49-50, 1-21.
