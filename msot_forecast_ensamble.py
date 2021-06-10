@@ -29,7 +29,7 @@ class MSOT(object):
     cantidad de nucleos y calculo de incerteza
     """
     def __init__(self, name, date0, domain, execut, delta_t, 
-                 threads = 10):
+                 threads = 10, ensamble = False):
         # Nombre del modelo
         self.name = name
         # |-----------||-------------|
@@ -46,6 +46,7 @@ class MSOT(object):
          # Creo la carpeta contenedora en el caso que no exista
         if not os.path.isdir(self.locacion):
             os.system("mkdir {}".format(self.locacion))
+        self.ensamble = ensamble
         return
 
     """
@@ -111,7 +112,7 @@ class MSOT(object):
             # Forzante
             print("Creando el forzante para el dominio {}".format(i))
             ## Creo el achivo forzante
-            self.make_forcing(i)
+            ####self.make_forcing(i)
             # Descarga continental
             if "runoff{}".format(i) in self.__dict__.keys():
                 print("Creando la descarga continental para el dominio {}".format(i))
@@ -127,15 +128,47 @@ class MSOT(object):
             ## En el caso que sea un dominio anidado recargo el numero de nucleos
             if i > 0:
                 os.environ["OMP_NUM_THREADS"] = str(eval("self.threads_{}".format(i)))
-            os.system(sentencia)
+            ####os.system(sentencia)
             # Ajuste de coordenadas del netcdf final
             print("Ajuste de coordenadas")
-            self.coord_adjust("{}{}_{}_his.nc".format(self.locacion, self.name, i))
-
+            ####self.coord_adjust("{}{}_{}_his.nc".format(self.locacion, self.name, i))
+        """
+        Modelo dinamico: ensamble
+        """
+        if self.ensamble:
+            # Variantes (Dt, Dx, Dy)
+            variantes = [(-1,0,0), (1,0,0), 
+                         (0,1,1), (0,1,0), (0,1,-1), 
+                         (0,0,1), (0,0,-1), 
+                         (0,-1,1), (0,-1,0), (0,-1,-1)]
+            for v, vari in enumerate(variantes, 1):
+                # Archivo input
+                print("Creando el archivo input para el dominio {} miembro {}".format(i, v))
+                input_file = self.make_input((i, v))
+                # Forzante
+                print("Creando el forzante para el dominio {} miembro {}".format(i, v))
+                ## Creo el achivo forzante
+                self.make_forcing((i, vari))
+                # Run
+                print("Corriendo el modelo {} nivel {} miembro {}".format(self.name, i, v))
+                sentencia = "./{} {} > log{}_{} && pid=$! && wait $pid".format(eval("self.exect{}".format(i)),
+                                                                               input_file, i, self.name)
+                os.system(sentencia)
+                # Ajuste de coordenadas del netcdf final
+                print("Ajuste de coordenadas")
+                self.coord_adjust("{}{}_{}_m{}_his.nc".format(self.locacion, self.name, i, v))
+            """
+            Compilo
+            """
+            lista_soluciones = [eval("xr.open_dataset('{}{}_{}_m{}_his.nc').drop(['h', 'mask_rho'])".format(self.locacion, self.name, i, v)) for v in range(1, 1 + len(variantes))]
+            lista_soluciones.append(xr.open_dataset("{}{}_{}_his.nc".format(self.locacion, self.name, i)))
+            solucion_ensamble = xr.concat(lista_soluciones, dim = "miembros")
+            solucion_ensamble["miembros"] = range(1 + len(variantes))
+            solucion_ensamble.to_netcdf("{}{}_{}_ens_his.nc".format(self.locacion, self.name, i))
         """
         Elimino los archivos de input y log
         """
-        os.system("rm *.in log* {locacion}*frc.nc {locacion}*runoff.nc {locacion}*bry.nc".format(locacion = self.locacion))
+        os.system("rm *.in log* {locacion}*frc.nc {locacion}*runoff.nc {locacion}*bry.nc {locacion}*_m*_his.nc".format(locacion = self.locacion))
         return
 
     ################################################################################
@@ -146,8 +179,13 @@ class MSOT(object):
     Archivo input
     """
     def make_input(self, n, **argkeys):
+        if isinstance(n, tuple):
+            n, k = n
         # Creo el archivo input dependiendo si es un modelo deterministico o por ensambles
-        txt = open("{}_{}.in".format(self.name, n),'w')
+        if "k" in locals():
+            txt = open("{}_{}_{}.in".format(self.name, n, k),'w')
+        else:
+            txt = open("{}_{}.in".format(self.name, n),'w')
         txt.write("title:\n")
         txt.write(self.name.upper() + "\n")
         txt.write("start_date:\n")
@@ -180,7 +218,10 @@ class MSOT(object):
             txt.write("T {} 0 \n".format(int(3600/self.dt[n])))
         else:
             txt.write("T {} 0 \n".format(int(3600/self.dt)))
-        txt.write("{}{}_{}_his.nc \n".format(self.locacion, self.name, n))
+        if "k" in locals():
+            txt.write("{}{}_{}_m{}_his.nc \n".format(self.locacion, self.name, n, k))
+        else:
+            txt.write("{}{}_{}_his.nc \n".format(self.locacion, self.name, n))
         txt.write("primary_history_fields: zeta UBAR VBAR  U  V   wrtT(1:NT)\n")
         txt.write("T    T   T   F  F    30*F\n")
         txt.write("rho0:\n")
@@ -201,7 +242,10 @@ class MSOT(object):
             for s in range(len(eval("self.runoff{}[1]".format(n)))):
                 txt.write("{} {} {} {} 30*T 5. 0.\n".format(mouth[s][0], mouth[s][1], mouth[s][2], mouth[s][3]))
         txt.close()
-        return "{}_{}.in".format(self.name, n)
+        if "k" in locals():
+            return "{}_{}_{}.in".format(self.name, n, k)
+        else:
+            return "{}_{}.in".format(self.name, n)
 
     """        
     Condicion inicial
@@ -364,6 +408,9 @@ class MSOT(object):
     Archivo forzante
     """
     def make_forcing(self, n, **kargs):
+        # Pregunto si es para el caso control o para un determinado miembro
+        if isinstance(n, tuple):
+            n, corrimientos = n
         # Descarga GFS
         if n == 0:
             # Pregunto si ya no lo habia descargado antes
@@ -400,6 +447,17 @@ class MSOT(object):
                               xr.open_dataset("prono{}/{}_atmo.nc".format(self.datef.strftime("%Y%m%d"),
                                                                           self.datef.strftime("%Y%m%d%H")))],
                                   dim = "time")
+        # Desplazamiento debido al ensamble shifting
+        if "corrimientos" in locals():
+            if corrimientos[0] != 0:
+                dt = pd.Timedelta(corrimientos[0] * frc_atmo.time.diff("time").mean().values)
+                frc_atmo = frc_atmo.assign_coords(time = frc_atmo.time + dt)
+            elif corrimientos[1] != 0:
+                dx = corrimientos[1] * frc_atmo.longitude.diff("longitude").mean()
+                frc_atmo = frc_atmo.assign_coords(longitude = frc_atmo.longitude + dx)
+            elif corrimientos[2] != 0:
+                dy = corrimientos[2] * frc_atmo.latitude.diff("latitude").mean()
+                frc_atmo = frc_atmo.assign_coords(latitude = frc_atmo.latitude + dy)
         # Interpolacion al dominio
         grd = xr.open_dataset(eval("self.dom{}".format(n)))
         frc_atmo_interp = frc_atmo.interp(longitude = grd.lon_rho.values[0,:]) \
@@ -507,7 +565,8 @@ class MSOT(object):
         # Quito el nivel medio
         # his["zeta"] -= his.zeta.mean("time")
         # Remuevo el spin up
-        his = his.sel(time = slice(self.datef, self.date1))
+        if ("_1_his.nc" in file) or ("_m" in file):
+            his = his.sel(time = slice(self.datef, self.date1))
         # Coords
         his["lat_rho"] = ("lat_rho", his.lat_rho[:,0])
         his["lon_rho"] = ("lon_rho", his.lon_rho[0,:])
