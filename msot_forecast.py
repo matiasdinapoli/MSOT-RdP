@@ -506,8 +506,9 @@ class MSOT(object):
         his["time"] = (["time"], pd.date_range(self.date0, periods = his.time.size, freq = "H"))
         # Quito el nivel medio
         # his["zeta"] -= his.zeta.mean("time")
-        # Remuevo el spin up
-        his = his.sel(time = slice(self.datef, self.date1))
+        # Remuevo el spin up solo del modelo anidado
+        if "_1_his.nc" in file:
+            his = his.sel(time = slice(self.datef, self.date1))
         # Coords
         his["lat_rho"] = ("lat_rho", his.lat_rho[:,0])
         his["lon_rho"] = ("lon_rho", his.lon_rho[0,:])
